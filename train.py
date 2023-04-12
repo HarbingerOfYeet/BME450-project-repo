@@ -3,6 +3,7 @@ import os
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from torch import nn
 import torchaudio
 import torchaudio.functional as F
 import torchaudio.transforms as T
@@ -57,7 +58,67 @@ class AudioFileDataset(Dataset):
             label = self.target_transform(label)
         return mfcc[:,:,:128], label                # mfcc has shape [1, n_mfcc, time]
 
-# define training data and dataloader
+# neural network class
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super(NeuralNetwork, self).__init__()
+        self.flatten = nn.Flatten()
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(128*128, 8192),
+            nn.ReLU(),
+            nn.Linear(8192, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 10)
+        )
+    
+    def forward(self, x):
+        x = self.flatten(x)
+        logits = self.linear_relu_stack(x)
+        return logits
+
+# train loop function
+def train_loop(dataloader, model, loss_fn, optimizer):
+    size = len(dataloader.dataset)
+    for batch, (X, y) in enumerate(dataloader):
+        # Compute prediction and loss
+        pred = model(X)
+        loss = loss_fn(pred, y)
+
+        # Backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if batch % 100 == 0:
+            loss, current = loss.item(), (batch + 1) * len(X)
+            print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+
+
+model = NeuralNetwork()
+
+# model parameters
+learning_rate = 1e-3
+batch_size = 64
+epochs = 5
+
+# initialize loss function
+loss_fn = nn.CrossEntropyLoss()
+
+# initialize optimizer
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+
+# training data and dataloader
 training_data = AudioFileDataset("filename_age.csv", "wav_training_data")
 train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
-train_features, train_labels = next(iter(train_dataloader))
+
+# train loop
+for t in range(epochs):
+    print(f"Epoch {t+1}\n-------------------------")
+    train_loop(train_dataloader, model, loss_fn, optimizer)
+print("Done!")
