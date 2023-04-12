@@ -12,9 +12,9 @@ import pandas as pd
 # define MFCC transformation
 n_fft = 2048
 win_length = None
-hop_length = 512
-n_mels = 256
-n_mfcc = 256
+hop_length = 256
+n_mels = 128
+n_mfcc = 128
 sample_rate = 6000
 
 mfcc_transform = T.MFCC(
@@ -55,7 +55,7 @@ class AudioFileDataset(Dataset):
             mfcc = self.transform(speech_waveform)
         if self.target_transform:
             label = self.target_transform(label)
-        return mfcc[:,:,:150], label                # mfcc has shape [1, n_mfcc, time]
+        return mfcc[:,:,:128], label                # mfcc has shape [1, n_mfcc, time]
 
 # define training data and dataloader
 training_data = AudioFileDataset("filename_age.csv", "wav_training_data")
