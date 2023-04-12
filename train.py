@@ -94,9 +94,9 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         loss.backward()
         optimizer.step()
 
-        if batch % 100 == 0:
-            loss, current = loss.item(), (batch + 1) * len(X)
-            print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+        #if batch % 100 == 0:
+        loss, current = loss.item(), (batch + 1) * len(X)
+        print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
 
 model = NeuralNetwork()
 
