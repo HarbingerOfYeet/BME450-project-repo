@@ -73,7 +73,7 @@ class NeuralNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(512, 10)
+            nn.Linear(512, 9)       # 9 categories for age
         )
     
     def forward(self, x):
@@ -94,9 +94,9 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         loss.backward()
         optimizer.step()
 
-        #if batch % 100 == 0:
-        loss, current = loss.item(), (batch + 1) * len(X)
-        print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+        if batch % 10 == 0:
+            loss, current = loss.item(), (batch + 1) * len(X)
+            print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
 
 model = NeuralNetwork()
 
