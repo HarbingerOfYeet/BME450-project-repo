@@ -112,7 +112,7 @@ loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 # define training data and dataloader
-training_data = AudioFileDataset("filename_age.csv", "wav_training_data")
+training_data = AudioFileDataset("train_files", "wav_training_data")
 train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
 
 # train loop
