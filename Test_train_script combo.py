@@ -9,6 +9,7 @@ import torchaudio.functional as F
 import torchaudio.transforms as T
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 # define MFCC transformation
 n_fft = 2048
@@ -17,7 +18,7 @@ hop_length = 256
 n_mels = 128
 n_mfcc = 128
 sample_rate = 6000
-current_array=[]
+current_array=np.zeros(10)
 
 mfcc_transform = T.MFCC(
     sample_rate=sample_rate,
@@ -85,6 +86,7 @@ class NeuralNetwork(nn.Module):
 # train loop function
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
+    counter=0 #counter to count observed batch numbers
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
         pred = model(X)
@@ -98,9 +100,13 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         if batch % 10 == 0:
             loss, current = loss.item(), (batch + 1) * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
-            
-            for x in range(10)
-                current_array(x)=current
+            #print(type(current))
+            current_array[counter]=loss
+            #print(current_array[counter])
+            counter= counter+1
+            #print(counter)
+    
+    return current_array
 
 model = NeuralNetwork()
 
@@ -116,13 +122,31 @@ loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 # define training data and dataloader
-training_data = AudioFileDataset("train_files", "wav_training_data")
+training_data = AudioFileDataset("train_files.csv", "wav_training_data")
 train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
 
 # train loop
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------")
-    train_loop(train_dataloader, model, loss_fn, optimizer)
+    c_array= train_loop(train_dataloader, model, loss_fn, optimizer)
+    batch_no = np.arange(np.size(c_array)-1)
+    #c_keeparray([t])=
+
+    plt.figure()
+    plt.scatter(batch_no, c_array)
+    plt.xlabel('Batch Number')
+    plt.ylabel('Loss Value')
+    if t == 0:
+        plt.title('Loss Function Plot for Epoch 1')
+    elif t == 1:
+        plt.title('Loss Function Plot for Epoch 2')
+    elif t == 2:
+        plt.title('Loss Function Plot for Epoch 3')
+    elif t == 3:
+        plt.title('Loss Function Plot for Epoch 4')
+    elif t == 4:
+        plt.title('Loss Function Plot for Epoch 5')
+    plt.show()
 print("Done!")
 
 import torch
