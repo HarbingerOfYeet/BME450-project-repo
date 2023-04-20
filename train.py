@@ -73,7 +73,7 @@ class NeuralNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(512, 10)
+            nn.Linear(512, 9)
         )
     
     def forward(self, x):
@@ -113,7 +113,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 # define training data and dataloader
 training_data = AudioFileDataset("train_files.csv", "wav_training_data")
-train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
 
 # train loop
 for t in range(epochs):
