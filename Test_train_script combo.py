@@ -106,7 +106,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
             counter= counter+1
             #print(counter)
     
-    return current_array
+    #return current_array
 
 model = NeuralNetwork()
 
@@ -126,28 +126,28 @@ training_data = AudioFileDataset("train_files.csv", "wav_training_data")
 train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
 
 # train loop
-for t in range(epochs):
-    print(f"Epoch {t+1}\n-------------------------")
-    c_array= train_loop(train_dataloader, model, loss_fn, optimizer)
-    batch_no = np.arange(np.size(c_array)-1)
+#for t in range(epochs):
+#    print(f"Epoch {t+1}\n-------------------------")
+#    c_array= train_loop(train_dataloader, model, loss_fn, optimizer)
+    #batch_no = np.arange(np.size(c_array)-1)
     #c_keeparray([t])=
 
-    plt.figure()
-    plt.scatter(batch_no, c_array)
-    plt.xlabel('Batch Number')
-    plt.ylabel('Loss Value')
-    if t == 0:
-        plt.title('Loss Function Plot for Epoch 1')
-    elif t == 1:
-        plt.title('Loss Function Plot for Epoch 2')
-    elif t == 2:
-        plt.title('Loss Function Plot for Epoch 3')
-    elif t == 3:
-        plt.title('Loss Function Plot for Epoch 4')
-    elif t == 4:
-        plt.title('Loss Function Plot for Epoch 5')
-    plt.show()
-print("Done!")
+    #plt.figure()
+    #plt.scatter(batch_no, c_array)
+    #plt.xlabel('Batch Number')
+    #plt.ylabel('Loss Value')
+    #if t == 0:
+    #    plt.title('Loss Function Plot for Epoch 1')
+    #elif t == 1:
+    #   plt.title('Loss Function Plot for Epoch 2')
+    #elif t == 2:
+    #    plt.title('Loss Function Plot for Epoch 3')
+    #elif t == 3:
+    #    plt.title('Loss Function Plot for Epoch 4')
+    #elif t == 4:
+    #    plt.title('Loss Function Plot for Epoch 5')
+    #plt.show()
+#print("Done!")
 
 import torch
 from torch import nn
@@ -169,3 +169,31 @@ def test_loop(dataloader, model, loss_fn):
     test_loss /= num_batches
     correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+
+# define test data and dataloader
+test_data = AudioFileDataset("test_files.csv", "wav_training_data")
+test_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+
+#Test script call function
+for t in range(epochs):
+    print(f"Epoch {t+1}\n-------------------------")
+    train_loop(train_dataloader, model, loss_fn, optimizer)
+    #batch_no = np.arange(np.size(c_array)-1)
+    test_loop(test_dataloader, model, loss_fn)
+print("Done!")
+
+    #plt.figure()
+    #plt.scatter(batch_no, c_array)
+    #plt.xlabel('Batch Number')
+    #plt.ylabel('Loss Value')
+    #if t == 0:
+    #    plt.title('Loss Function Plot for Epoch 1')
+    #elif t == 1:
+    #    plt.title('Loss Function Plot for Epoch 2')
+    #elif t == 2:
+    #    plt.title('Loss Function Plot for Epoch 3')
+    #elif t == 3:
+    #    plt.title('Loss Function Plot for Epoch 4')
+    #elif t == 4:
+     #   plt.title('Loss Function Plot for Epoch 5')
+    #plt.show()
