@@ -10,6 +10,7 @@ import torchaudio.transforms as T
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import array as arr
 
 # define MFCC transformation
 n_fft = 2048
@@ -169,17 +170,37 @@ def test_loop(dataloader, model, loss_fn):
     test_loss /= num_batches
     correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    return (100*correct), test_loss
 
 # define test data and dataloader
 test_data = AudioFileDataset("test_files.csv", "wav_training_data")
 test_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
 
 #Test script call function
+acc_array = []
+loss_array = []
+epoch_array = []
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------")
     train_loop(train_dataloader, model, loss_fn, optimizer)
-    #batch_no = np.arange(np.size(c_array)-1)
-    test_loop(test_dataloader, model, loss_fn)
+    #batch_no = np.arange(np.size(c_array))
+    acc, avg_loss = test_loop(test_dataloader, model, loss_fn)
+    acc_array.append(acc)
+    loss_array.append(avg_loss)
+    epoch_array.append(t+1)
+
+plt.figure(1)
+plt.scatter(acc_array, epoch_array)
+plt.xlabel('Epoch Iterations')
+plt.ylabel('Accuracy (%)')
+plt.show()
+
+plt.figure(2)
+plt.scatter(loss_array, epoch_array)
+plt.xlabel('Epoch Iterations')
+plt.ylabel('Loss Value')
+plt.show()
+
 print("Done!")
 
     #plt.figure()
