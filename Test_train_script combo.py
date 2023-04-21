@@ -1,4 +1,3 @@
-# imports
 import os
 import torch
 from torch import nn
@@ -10,7 +9,6 @@ import torchaudio.transforms as T
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import array as arr
 
 # define MFCC transformation
 n_fft = 2048
@@ -189,13 +187,13 @@ for t in range(epochs):
     loss_array.append(avg_loss)
     epoch_array.append(t+1)
 
-plt.figure(1)
+plt.figure()
 plt.scatter(acc_array, epoch_array)
 plt.xlabel('Epoch Iterations')
 plt.ylabel('Accuracy (%)')
 plt.show()
 
-plt.figure(2)
+plt.figure()
 plt.scatter(loss_array, epoch_array)
 plt.xlabel('Epoch Iterations')
 plt.ylabel('Loss Value')
