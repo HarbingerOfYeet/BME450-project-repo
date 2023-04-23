@@ -8,8 +8,6 @@ import NeuralNetwork as mlp
 import matplotlib.pyplot as plt
 import numpy as np
 from functools import partial
-import torchvision
-import torchvision.transforms as transforms
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
@@ -27,14 +25,9 @@ from ray.tune.schedulers import ASHAScheduler
 # load_data
 # data_dir - combine both datasets in a common directory
 # wrap train and test data in a function
-def load_data(data_dir="./data"):
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
-
-    train_data = afd.AudioFileDataset("train_files.csv", "wav_training_data")
-    test_data = afd.AudioFileDataset("test_files.csv", "wav_training_data")
+def load_data(data_dir):
+    train_data = afd.AudioFileDataset(data_dir, "/train_files.csv", "wav_training_data")
+    test_data = afd.AudioFileDataset(data_dir, "/test_files.csv", "wav_training_data")
 
     return train_data, test_data
 
@@ -57,7 +50,7 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
 
     # initialize loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()  
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"], momentum=0.9)
 
     # set checkpoints if checkpoint_dir is true
     if checkpoint_dir:
@@ -66,24 +59,22 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
         net.load_state_dict(model_state)
         optimizer.load_state_dict(optimizer_state)
 
-    train_data = load_data(data_dir)         # load train data
+    train_data = load_data(data_dir)     # load train data
 
     # define dataloaders
     train_loader = DataLoader(
         train_data, 
         batch_size=int(config["batch_size"]),
         shuffle=True,
-        num_workers=8
-        )
+        num_workers=4
+    )
 
     for epoch in range(10):         # loop over dataset
         running_loss = 0.0
         epoch_steps = 0
-        num_batches = len(train_loader)
-        for batch, data in enumerate(train_loader):
+        for batch, (audio, labels) in enumerate(train_loader):
             # data is list of [inputs, labels]
             # send data to GPU device
-            audio, labels = data
             audio, labels = audio.to(device), labels.to(device)
             
             # Compute prediction and loss
@@ -120,8 +111,8 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
 #     test_loop(test_dataloader, model, loss_fn)
 # print("Done!")
 
-def test_accuracy(net, device="cpu"):
-    train_data, test_data = load_data()
+def test_accuracy(net, data_dir, device="cpu"):
+    train_data, test_data = load_data(data_dir)
 
     # test dataloader
     test_loader = DataLoader(
@@ -136,10 +127,10 @@ def test_accuracy(net, device="cpu"):
     size = len(test_loader.dataset)
     with torch.no_grad():
         for data in test_loader:
-            audio, labels = data
-            audio, labels = audio.to(device), labels.to(device)
+            audio, label = data
+            audio, label = audio.to(device), label.to(device)
             pred = net(audio)
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+            correct += (pred.argmax(1) == label).type(torch.float).sum().item()
 
     return correct / size
 
@@ -148,39 +139,49 @@ def test_accuracy(net, device="cpu"):
 # main
 # main function to find optimal hyperparameters
 def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
-    data_dir = os.path.abspath("./data")
-    load_data(data_dir)
-    config = {
-        "l1": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-        "l2": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-        "l3": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-        "lr": tune.loguniform(1e-4, 1e-1),
-        "batch_size": tune.choice([32, 64, 128])
-    }
-    scheduler = ASHAScheduler(
-        metric="loss",
-        mode="min",
-        max_t=max_num_epochs,
-        grace_period=1,
-        reduction_factor=2
+    data_dir = os.path.abspath("./")
+    train_data = load_data(data_dir) 
+    
+    print(train_data[0].__getitem__(0))
+    train_loader = DataLoader(
+        train_data, 
+        batch_size=3,
+        shuffle=True,
+        num_workers=4
     )
-    reporter = CLIReporter(
-        # parameter_columns=["l1", "l2", "l3", "lr", "batch_size"]
-        metric_columns=["loss", "accuracy", "training_iteration"]
-    )
-    result = tune.run(
-        partial(train_func, data_dir=data_dir),
-        resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
-        config=config,
-        num_samples=num_samples,
-        scheduler=scheduler,
-        progress_reporter=reporter
-    )
+    for i, data in enumerate(train_loader):
+        print(type(data[0]))
 
-    best_trial = result.get_best_trial("loss", "min", "last")
-    print("Best trial config: {}".format(best_trial.config))
-    # print("Best trial final validation loss: {}".format(best_trial.last_result["loss"]))
-    # print("Best trial final validation accuracy: {}".format(best_trial.last_result["accuracy"]))
+    
+    # config = {
+    #     "l1": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
+    #     "l2": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
+    #     "l3": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
+    #     "lr": tune.loguniform(1e-4, 1e-1),
+    #     "batch_size": tune.choice([32, 64, 128])
+    # }
+    # scheduler = ASHAScheduler(
+    #     metric="loss",
+    #     mode="min",
+    #     max_t=max_num_epochs,
+    #     grace_period=1,
+    #     reduction_factor=2
+    # )
+    # reporter = CLIReporter(
+    #     # parameter_columns=["l1", "l2", "l3", "lr", "batch_size"]
+    #     metric_columns=["loss", "accuracy", "training_iteration"]
+    # )
+    # result = tune.run(
+    #     partial(train_func, data_dir=data_dir),
+    #     resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
+    #     config=config,
+    #     num_samples=num_samples,
+    #     scheduler=scheduler,
+    #     progress_reporter=reporter
+    # )
+
+    # best_trial = result.get_best_trial("loss", "min", "last")
+    # print("Best trial config: {}".format(best_trial.config))
 
 # convert lists to arrays
 # xdata = np.arange(0, 10, 1)
@@ -203,3 +204,6 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
 # ax2.set_title("Accuracy vs. Epochs")
 # ax2.plot(xdata, train_data, color="g")
 # plt.show()
+
+if __name__ == "__main__":
+    main(num_samples=10, max_num_epochs=10, gpus_per_trial=0)
