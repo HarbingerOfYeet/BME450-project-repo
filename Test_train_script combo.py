@@ -59,7 +59,7 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
         net.load_state_dict(model_state)
         optimizer.load_state_dict(optimizer_state)
 
-    train_data = load_data(data_dir)     # load train data
+    train_data, test_data = load_data(data_dir)     # load train data
 
     # define dataloaders
     train_loader = DataLoader(
@@ -72,9 +72,10 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
     for epoch in range(10):         # loop over dataset
         running_loss = 0.0
         epoch_steps = 0
-        for batch, (audio, labels) in enumerate(train_loader):
+        for batch, data in enumerate(train_loader):
             # data is list of [inputs, labels]
             # send data to GPU device
+            audio, labels = data
             audio, labels = audio.to(device), labels.to(device)
             
             # Compute prediction and loss
@@ -140,48 +141,36 @@ def test_accuracy(net, data_dir, device="cpu"):
 # main function to find optimal hyperparameters
 def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     data_dir = os.path.abspath("./")
-    train_data = load_data(data_dir) 
-    
-    print(train_data[0].__getitem__(0))
-    train_loader = DataLoader(
-        train_data, 
-        batch_size=3,
-        shuffle=True,
-        num_workers=4
+    load_data(data_dir)
+    config = {
+        "l1": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
+        "l2": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
+        "l3": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
+        "lr": tune.loguniform(1e-4, 1e-1),
+        "batch_size": tune.choice([32, 64, 128])
+    }
+    scheduler = ASHAScheduler(
+        metric="loss",
+        mode="min",
+        max_t=max_num_epochs,
+        grace_period=1,
+        reduction_factor=2
     )
-    for i, data in enumerate(train_loader):
-        print(type(data[0]))
+    reporter = CLIReporter(
+        # parameter_columns=["l1", "l2", "l3", "lr", "batch_size"]
+        metric_columns=["loss", "accuracy", "training_iteration"]
+    )
+    result = tune.run(
+        partial(train_func, data_dir=data_dir),
+        resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
+        config=config,
+        num_samples=num_samples,
+        scheduler=scheduler,
+        progress_reporter=reporter
+    )
 
-    
-    # config = {
-    #     "l1": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-    #     "l2": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-    #     "l3": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-    #     "lr": tune.loguniform(1e-4, 1e-1),
-    #     "batch_size": tune.choice([32, 64, 128])
-    # }
-    # scheduler = ASHAScheduler(
-    #     metric="loss",
-    #     mode="min",
-    #     max_t=max_num_epochs,
-    #     grace_period=1,
-    #     reduction_factor=2
-    # )
-    # reporter = CLIReporter(
-    #     # parameter_columns=["l1", "l2", "l3", "lr", "batch_size"]
-    #     metric_columns=["loss", "accuracy", "training_iteration"]
-    # )
-    # result = tune.run(
-    #     partial(train_func, data_dir=data_dir),
-    #     resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
-    #     config=config,
-    #     num_samples=num_samples,
-    #     scheduler=scheduler,
-    #     progress_reporter=reporter
-    # )
-
-    # best_trial = result.get_best_trial("loss", "min", "last")
-    # print("Best trial config: {}".format(best_trial.config))
+    best_trial = result.get_best_trial("loss", "min", "last")
+    print("Best trial config: {}".format(best_trial.config))
 
 # convert lists to arrays
 # xdata = np.arange(0, 10, 1)

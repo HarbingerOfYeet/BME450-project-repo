@@ -39,7 +39,7 @@ class AudioFileDataset(Dataset):
     def __getitem__(self, idx):
         # get path to audio file
         filename = self.audio_labels.iloc[idx, 0][:-3] + "wav"
-        audio_path = os.path.join(self.audio_dir, filename)
+        audio_path = os.path.join(os.path.abspath(self.root + "/" + self.audio_dir), filename)
         
         # load audio file
         speech_waveform, sample_rate = torchaudio.load(audio_path)
