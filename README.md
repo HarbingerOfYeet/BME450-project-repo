@@ -12,7 +12,8 @@
 	Process:
 		1. Download Common Voice Delta Segment 12.0 and select audio files with a non-empty age field
 		2. Determine MFCC for each audio file
-		3. Run 100 audio clips through MLP model to train on a small dataset
+		3. Run audio clips through MLP model to train
 		4. Test model 
+		5. Tune hyperparameters
 
 	Common Voice: https://commonvoice.mozilla.org/en
