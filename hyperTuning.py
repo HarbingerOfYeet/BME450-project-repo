@@ -3,6 +3,7 @@ import os
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+from torch.utils.data import random_split
 import AudioFileDataset as afd
 import NeuralNetwork as mlp
 import numpy as np
@@ -50,9 +51,20 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
 
     train_data, test_data = load_data(data_dir)     # load train data
 
+    # split training data into train and validation data
+    test_abs = int(len(train_data) * 0.8)
+    train_subset, val_subset = random_split(
+        train_data, [test_abs, len(train_data) - test_abs]
+    )
     # define dataloaders
     train_loader = DataLoader(
-        train_data, 
+        train_subset, 
+        batch_size=int(config["batch_size"]),
+        shuffle=True,
+        num_workers=4
+    )
+    val_loader = DataLoader(
+        val_subset,
         batch_size=int(config["batch_size"]),
         shuffle=True,
         num_workers=4
@@ -83,14 +95,28 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
                 print("[%d, %5d] loss: %.3f" % (epoch + 1, batch + 1, running_loss / epoch_steps))
                 running_loss = 0.0
 
-        # track the average train loss for each epoch
-        # train_loss_arr.append(total_loss / num_batches)
+        val_loss = 0.0
+        val_steps = 0
+        total = 0
+        correct = 0
+        for batch, data in enumerate(val_loader):
+            with torch.no_grad():
+                audio, labels = data
+                audio, labels = audio.to(device), labels.to(device)
+
+                pred = net(audio)
+                total += labels.size(0)
+                correct += (pred.argmax(1) == labels).type(torch.float).sum().item()
+
+                loss = loss_fn(pred, labels)
+                val_loss += loss.cpu().numpy()
+                val_steps += 1
 
         with tune.checkpoint_dir(epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
             torch.save((net.state_dict(), optimizer.state_dict()), path)
 
-        tune.report(loss=(running_loss / epoch_steps))
+        tune.report(loss=(running_loss / epoch_steps), accuracy=correct / total)
     print("Finished Training")
     
         
@@ -113,10 +139,10 @@ def test_accuracy(net, data_dir, device="cpu"):
     size = len(test_loader.dataset)
     with torch.no_grad():
         for data in test_loader:
-            audio, label = data
-            audio, label = audio.to(device), label.to(device)
+            audio, labels = data
+            audio, labels = audio.to(device), labels.to(device)
             pred = net(audio)
-            correct += (pred.argmax(1) == label).type(torch.float).sum().item()
+            correct += (pred.argmax(1) == labels).type(torch.float).sum().item()
 
     return correct / size
 
@@ -142,7 +168,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     )
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "l3", "lr", "batch_size"]
-        metric_columns=["loss", "training_iteration"]
+        metric_columns=["loss", "accuracy", "training_iteration"]
     )
     result = tune.run(
         partial(train_func, data_dir=data_dir),
@@ -155,7 +181,26 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
 
     best_trial = result.get_best_trial("loss", "min", "last")
     print("Best trial config: {}".format(best_trial.config))
+    print("Best trial final validation loss: {}".format(
+        best_trial.last_result["loss"]))
+    print("Best trial final validation accuracy: {}".format(
+        best_trial.last_result["accuracy"]))
 
+    best_trained_model = mlp.NeuralNetwork(best_trial.config["l1"], best_trial.config["l2"])
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda:0"
+        if gpus_per_trial > 1:
+            best_trained_model = nn.DataParallel(best_trained_model)
+    best_trained_model.to(device)
+
+    best_checkpoint_dir = best_trial.checkpoint.value
+    model_state, optimizer_state = torch.load(os.path.join(
+        best_checkpoint_dir, "checkpoint"))
+    best_trained_model.load_state_dict(model_state)
+
+    test_acc = test_accuracy(best_trained_model, device)
+    print("Best trial test set accuracy: {}".format(test_acc))
 # convert lists to arrays
 # xdata = np.arange(0, 10, 1)
 # train_data = np.array(train_loss_arr)
