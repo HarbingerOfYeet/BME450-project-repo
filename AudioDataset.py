@@ -25,7 +25,7 @@ mfcc_transform = T.MFCC(
     },
 )
 # custom audio dataset
-class AudioFileDataset(Dataset):
+class AudioDataset(Dataset):
     def __init__(self, root, annotations_file, audio_dir, transform=mfcc_transform, target_transform=None):
         self.root = root
         self.audio_labels = pd.read_csv(root + annotations_file)

@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
-import AudioFileDataset as afd
+import AudioDataset as ad
 import NeuralNetwork as mlp
 import numpy as np
 from functools import partial
@@ -16,8 +16,8 @@ from ray.tune.schedulers import ASHAScheduler
 # data_dir - combine both datasets in a common directory
 # wrap train and test data in a function
 def load_data(data_dir):
-    train_data = afd.AudioFileDataset(data_dir, "/train_files.csv", "wav_training_data")
-    test_data = afd.AudioFileDataset(data_dir, "/test_files.csv", "wav_training_data")
+    train_data = ad.AudioDataset(data_dir, "/train_files.csv", "wav_training_data")
+    test_data = ad.AudioDataset(data_dir, "/test_files.csv", "wav_training_data")
 
     return train_data, test_data
 
