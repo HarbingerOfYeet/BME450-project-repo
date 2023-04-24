@@ -5,22 +5,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 import AudioFileDataset as afd
 import NeuralNetwork as mlp
-import matplotlib.pyplot as plt
 import numpy as np
 from functools import partial
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
-
-
-# model parameters
-# learning_rate = 1e-3
-# batch_size = 64
-# epochs = 5
-
-# train_loss_arr = []
-# test_loss_arr = []
-# accuracy_arr = []
 
 # load_data
 # data_dir - combine both datasets in a common directory
@@ -38,19 +27,19 @@ def load_data(data_dir):
 # data_dir - directory to load and store data
 def train_func(config, checkpoint_dir=None, data_dir=None):
     
-    model = mlp.NeuralNetwork(config["l1"], config["l2"])
+    net = mlp.NeuralNetwork(config["l1"], config["l2"])
 
     # multi GPU support with data parallel training
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda:0"
         if torch.cuda.device_count() > 1:
-            net = nn.DataParallel(model)
-        model.to(device)
+            net = nn.DataParallel(net)
+        net.to(device)
 
     # initialize loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()  
-    optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"], momentum=0.9)
+    optimizer = torch.optim.SGD(net.parameters(), lr=config["lr"], momentum=0.9)
 
     # set checkpoints if checkpoint_dir is true
     if checkpoint_dir:
@@ -79,7 +68,7 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
             audio, labels = audio.to(device), labels.to(device)
             
             # Compute prediction and loss
-            pred = model(audio)
+            pred = net(audio)
             loss = loss_fn(pred, labels)
 
             # Backpropagation
@@ -99,19 +88,15 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
 
         with tune.checkpoint_dir(epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
-            torch.save((net.state_dict(), optimizer.state_dict(), path))
+            torch.save((net.state_dict(), optimizer.state_dict()), path)
 
-        print("Finished Training")
+        tune.report(loss=(running_loss / epoch_steps))
+    print("Finished Training")
+    
         
-
-
-#Test script call function
-# for t in range(epochs):
-#     print(f"Epoch {t+1}\n-------------------------")
-#     train_loop(train_dataloader, model, loss_fn, optimizer)
-#     test_loop(test_dataloader, model, loss_fn)
-# print("Done!")
-
+# test_accuracy
+# net - neural network
+# data_dir - directory for data files
 def test_accuracy(net, data_dir, device="cpu"):
     train_data, test_data = load_data(data_dir)
 
@@ -136,7 +121,6 @@ def test_accuracy(net, data_dir, device="cpu"):
     return correct / size
 
 
-
 # main
 # main function to find optimal hyperparameters
 def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
@@ -158,7 +142,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     )
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "l3", "lr", "batch_size"]
-        metric_columns=["loss", "accuracy", "training_iteration"]
+        metric_columns=["loss", "training_iteration"]
     )
     result = tune.run(
         partial(train_func, data_dir=data_dir),
