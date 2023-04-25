@@ -1,21 +1,21 @@
 from torch import nn
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, l1=2048, l2=1024, l3=512):
+    def __init__(self, l4=1024, l5=512):
         super(NeuralNetwork, self).__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(128*128, l1),
+            nn.Linear(128*128, 8192),
             nn.ReLU(),
-            # nn.Linear(8192, 4096),
-            # nn.ReLU(),
-            # nn.Linear(4096, 2048),
-            # nn.ReLU(),
-            nn.Linear(l1, l2),
+            nn.Linear(8192, 4096),
             nn.ReLU(),
-            nn.Linear(l2, l3),
+            nn.Linear(4096, 2048),
             nn.ReLU(),
-            nn.Linear(l3, 9)       # 9 categories for age
+            nn.Linear(2048, l4),
+            nn.ReLU(),
+            nn.Linear(l4, l5),
+            nn.ReLU(),
+            nn.Linear(l5, 9)       # 9 categories for age
         )
     
     def forward(self, x):
