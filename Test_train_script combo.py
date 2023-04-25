@@ -1,4 +1,3 @@
-# imports
 import os
 import torch
 from torch import nn
@@ -10,6 +9,7 @@ import torchaudio.transforms as T
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import xlsxwriter
 
 # define MFCC transformation
 n_fft = 2048
@@ -18,7 +18,6 @@ hop_length = 256
 n_mels = 128
 n_mfcc = 128
 sample_rate = 6000
-current_array=np.zeros(10)
 
 mfcc_transform = T.MFCC(
     sample_rate=sample_rate,
@@ -87,10 +86,13 @@ class NeuralNetwork(nn.Module):
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     counter=0 #counter to count observed batch numbers
+    current_array=np.zeros(size)
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
         pred = model(X)
         loss = loss_fn(pred, y)
+        current_array[counter]=loss
+        counter= counter+1
 
         # Backpropagation
         optimizer.zero_grad()
@@ -101,19 +103,19 @@ def train_loop(dataloader, model, loss_fn, optimizer):
             loss, current = loss.item(), (batch + 1) * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
             #print(type(current))
-            current_array[counter]=loss
+            #current_array[counter]=loss
+            #counter= counter+1
             #print(current_array[counter])
-            counter= counter+1
             #print(counter)
-    
-    #return current_array
+    #return np.mean(current_array)
+    return np.sum(current_array)/np.count_nonzero(current_array)
 
 model = NeuralNetwork()
 
 # model parameters
-learning_rate = 1e-3
-batch_size = 64
-epochs = 5
+learning_rate = 1e-2 #Original 1e-3 
+batch_size = 32 #Original 64
+epochs = 100 #Would like to be 100
 
 # initialize loss function
 loss_fn = nn.CrossEntropyLoss()
@@ -123,7 +125,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 # define training data and dataloader
 training_data = AudioFileDataset("train_files.csv", "wav_training_data")
-train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+train_dataloader = DataLoader(training_data, batch_size, shuffle=True)
 
 # train loop
 #for t in range(epochs):
@@ -169,31 +171,110 @@ def test_loop(dataloader, model, loss_fn):
     test_loss /= num_batches
     correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    return (100*correct), test_loss
 
 # define test data and dataloader
 test_data = AudioFileDataset("test_files.csv", "wav_training_data")
-test_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+test_dataloader = DataLoader(training_data, batch_size, shuffle=True)
 
 #Test script call function
+acc_array = []
+loss_array = []
+epoch_array = []
+train_avg_loss = []
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------")
-    train_loop(train_dataloader, model, loss_fn, optimizer)
-    #batch_no = np.arange(np.size(c_array)-1)
-    test_loop(test_dataloader, model, loss_fn)
-print("Done!")
+    train_loss = train_loop(train_dataloader, model, loss_fn, optimizer)
+    #batch_no = np.arange(np.size(c_array))
+    acc, avg_loss = test_loop(test_dataloader, model, loss_fn)
+    acc_array.append(acc)
+    loss_array.append(avg_loss)
+    epoch_array.append(t+1)
+    train_avg_loss.append(train_loss)
 
-    #plt.figure()
-    #plt.scatter(batch_no, c_array)
-    #plt.xlabel('Batch Number')
-    #plt.ylabel('Loss Value')
-    #if t == 0:
-    #    plt.title('Loss Function Plot for Epoch 1')
-    #elif t == 1:
-    #    plt.title('Loss Function Plot for Epoch 2')
-    #elif t == 2:
-    #    plt.title('Loss Function Plot for Epoch 3')
-    #elif t == 3:
-    #    plt.title('Loss Function Plot for Epoch 4')
-    #elif t == 4:
-     #   plt.title('Loss Function Plot for Epoch 5')
-    #plt.show()
+#plt.figure(1)
+#plt.scatter(epoch_array,acc_array)
+#plt.xlabel('Epoch Iterations')
+#plt.ylabel('Accuracy (%)')
+#plt.title('Accuracy against Epoch iterations Plot')
+#plt.show()
+
+#plt.figure(2)
+#plt.scatter(epoch_array,loss_array)
+#plt.xlabel('Epoch Iterations')
+#plt.ylabel('Loss Value')
+#plt.title('Loss Value against Epoch iterations Plot')
+#plt.show()
+
+fig, ax = plt.subplots()
+l1a=ax.plot(epoch_array, loss_array)
+l1b=ax.plot(epoch_array, train_avg_loss)
+ax.set_xlabel("Epoch Iterations", fontsize = 14)
+ax.set_ylabel("Loss Value", fontsize = 14)
+plt.legend(["Test Average Loss","Train Average Loss"])
+plt.title('Loss Progression against Epoch')
+plt.show()
+
+fig2, ax2 = plt.subplots()
+ax2.plot(epoch_array, acc_array)
+ax2.set_xlabel("Epoch Iterations", fontsize = 14)
+ax2.set_ylabel("Accuracy (%)", fontsize = 14)
+plt.title('Accuracy Progression against Epoch')
+plt.show()
+
+fig.savefig('Loss Progression against Epoch.png', format = 'png', dpi = 100, bbox_inches='tight')
+fig2.savefig('Accuracy Progression against Epoch.png', format = 'png',  dpi = 100, bbox_inches='tight')
+ 
+ ##Saving Data to an Excel Workbook
+workbook = xlsxwriter.Workbook('nn Run Data.xlsx')
+worksheet = workbook.add_worksheet()
+ 
+# Start from the first cell.
+# Rows and columns are zero indexed.
+row = 0
+column = 0
+ 
+# iterating through content list
+for item in epoch_array :
+ 
+    # write operation perform
+    worksheet.write(row, column, item)
+ 
+    row += 1
+
+row=0
+for item in train_avg_loss :
+ 
+    # write operation perform
+    worksheet.write(row, column+1, item)
+ 
+    row += 1
+
+row=0
+
+for item in loss_array :
+ 
+    # write operation perform
+    worksheet.write(row, column+2, item)
+ 
+    row += 1
+
+row=0
+
+for item in acc_array :
+ 
+    # write operation perform
+    worksheet.write(row, column+3, item)
+ 
+    row += 1
+
+workbook.close()
+
+##Torch.save nn run
+#PATH="100_epoch_model.pth"
+#torch.save(model.state_dict(), PATH)
+
+##Load torch.save
+#model = TheModelClass(*args, **kwargs)
+#model.load_state_dict(torch.load(PATH))
+#model.eval()-z
