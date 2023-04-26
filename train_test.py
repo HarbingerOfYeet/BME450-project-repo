@@ -74,7 +74,7 @@ def main():
     batch_size = 64
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)#torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     train_loader = DataLoader(
         train_data,
