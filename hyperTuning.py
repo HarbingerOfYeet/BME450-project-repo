@@ -8,6 +8,7 @@ import AudioDataset as ad
 import NeuralNetwork as mlp
 import numpy as np
 from functools import partial
+import ray
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
@@ -28,7 +29,7 @@ def load_data(data_dir):
 # data_dir - directory to load and store data
 def train_func(config, checkpoint_dir=None, data_dir=None):
     
-    net = mlp.NeuralNetwork(config["l1"], config["l2"])
+    net = mlp.NeuralNetwork(config["l4"], config["l5"])
 
     # multi GPU support with data parallel training
     device = "cpu"
@@ -95,6 +96,7 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
                 print("[%d, %5d] loss: %.3f" % (epoch + 1, batch + 1, running_loss / epoch_steps))
                 running_loss = 0.0
 
+        # validation step
         val_loss = 0.0
         val_steps = 0
         total = 0
@@ -153,9 +155,8 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     data_dir = os.path.abspath("./")
     load_data(data_dir)
     config = {
-        "l1": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-        "l2": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
-        "l3": tune.sample_from(lambda _: 2**np.random.randint(5, 10)),
+        "l4": tune.sample_from(lambda _: 2**np.random.randint(4, 8)),
+        "l5": tune.sample_from(lambda _: 2**np.random.randint(4, 8)),
         "lr": tune.loguniform(1e-4, 1e-1),
         "batch_size": tune.choice([32, 64, 128])
     }
@@ -187,6 +188,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         best_trial.last_result["accuracy"]))
 
     best_trained_model = mlp.NeuralNetwork(best_trial.config["l1"], best_trial.config["l2"])
+    
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda:0"
@@ -201,27 +203,6 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
 
     test_acc = test_accuracy(best_trained_model, device)
     print("Best trial test set accuracy: {}".format(test_acc))
-# convert lists to arrays
-# xdata = np.arange(0, 10, 1)
-# train_data = np.array(train_loss_arr)
-# test_data = np.array(test_loss_arr)
-# accuracy_data = np.array(accuracy_arr)
-
-# # plot results
-# fig1, ax1 = plt.subplots()
-# ax1.set_xlabel("Epochs")
-# ax1.set_ylabel("Loss")
-# ax1.set_title("Loss vs. Epochs for Testing and Training")
-# ax1.plot(xdata, train_data, color="r")
-# ax1.plot(xdata, test_data, color="b")
-# plt.show()
-
-# fig2, ax2 = plt.subplots()
-# ax2.set_xlabel("Epochs")
-# ax2.set_ylabel("Accuracy")
-# ax2.set_title("Accuracy vs. Epochs")
-# ax2.plot(xdata, train_data, color="g")
-# plt.show()
 
 if __name__ == "__main__":
     main(num_samples=10, max_num_epochs=10, gpus_per_trial=0)
