@@ -16,6 +16,7 @@ accuracy_arr = []
 # train_loop
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
+    num_batches = 0
     train_loss = 0
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
@@ -28,12 +29,16 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
 
         train_loss += loss.item()
+        num_batches += 1
+
         if batch % 10 == 0:
             loss, current = loss.item(), (batch + 1) * len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
-    train_loss_arr.append(train_loss / size)
-
+    avg_loss = train_loss / num_batches
+    train_loss_arr.append(avg_loss)
+    print(f"Avg Train Loss: {avg_loss:>7f}")
+    
 
 # test_loop
 def test_loop(dataloader, model, loss_fn):
@@ -69,12 +74,12 @@ def main():
     batch_size = 64
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     train_loader = DataLoader(
         train_data,
         batch_size=batch_size, 
-        shuffle=False,
+        shuffle=True,          # shuffling train data
         num_workers=2
     )
     test_loader = DataLoader(
@@ -84,7 +89,7 @@ def main():
         num_workers=2
     )
 
-    epochs = 2
+    epochs = 10
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
         train_loop(train_loader, model, loss_fn, optimizer)
@@ -104,12 +109,13 @@ def main():
     ax1.set_title("Loss vs. Epochs for Testing and Training")
     ax1.plot(xdata, train_data, color="r")
     ax1.plot(xdata, test_data, color="b")
+    ax1.legend(["Train", "Test"])
 
     fig2, ax2 = plt.subplots()
     ax2.set_xlabel("Epochs")
     ax2.set_ylabel("Accuracy")
     ax2.set_title("Accuracy vs. Epochs")
-    ax2.plot(xdata, train_data, color="g")
+    ax2.plot(xdata, accuracy_data, color="g")
     plt.show()
 
 if __name__ == "__main__":
