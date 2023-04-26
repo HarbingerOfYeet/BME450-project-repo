@@ -29,7 +29,7 @@ def load_data(data_dir):
 # data_dir - directory to load and store data
 def train_func(config, checkpoint_dir=None, data_dir=None):
     
-    net = mlp.NeuralNetwork(config["l4"], config["l5"])
+    net = mlp.NeuralNetwork(config["l4"], config["l5"])      
 
     # multi GPU support with data parallel training
     device = "cpu"
@@ -53,7 +53,7 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
     train_data, test_data = load_data(data_dir)     # load train data
 
     # split training data into train and validation data
-    test_abs = int(len(train_data) * 0.8)
+    test_abs = int(len(train_data) * 0.9)
     train_subset, val_subset = random_split(
         train_data, [test_abs, len(train_data) - test_abs]
     )
@@ -96,7 +96,7 @@ def train_func(config, checkpoint_dir=None, data_dir=None):
                 print("[%d, %5d] loss: %.3f" % (epoch + 1, batch + 1, running_loss / epoch_steps))
                 running_loss = 0.0
 
-        # validation step
+        # validation data
         val_loss = 0.0
         val_steps = 0
         total = 0
@@ -168,7 +168,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         reduction_factor=2
     )
     reporter = CLIReporter(
-        # parameter_columns=["l1", "l2", "l3", "lr", "batch_size"]
+        # parameter_columns=["l4", "l5", "lr", "batch_size"]
         metric_columns=["loss", "accuracy", "training_iteration"]
     )
     result = tune.run(
@@ -187,8 +187,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     print("Best trial final validation accuracy: {}".format(
         best_trial.last_result["accuracy"]))
 
-    best_trained_model = mlp.NeuralNetwork(best_trial.config["l1"], best_trial.config["l2"])
-    
+    best_trained_model = mlp.NeuralNetwork(best_trial.config["l4"], best_trial.config["l5"])        
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda:0"
