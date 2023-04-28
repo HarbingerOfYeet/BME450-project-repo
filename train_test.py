@@ -74,7 +74,8 @@ def main():
     batch_size = 64
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)#torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    #optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
     train_loader = DataLoader(
         train_data,
@@ -89,7 +90,7 @@ def main():
         num_workers=2
     )
 
-    epochs = 10
+    epochs = 20
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
         train_loop(train_loader, model, loss_fn, optimizer)
